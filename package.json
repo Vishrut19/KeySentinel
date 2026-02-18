@@ -1,0 +1,40 @@
+{
+    "name": "keysentinel",
+    "version": "0.1.0",
+    "description": "GitHub Action that scans PR diffs for secrets and sensitive data",
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "tsc",
+        "package": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
+        "lint": "eslint src/**/*.ts",
+        "test": "jest",
+        "all": "npm run build && npm run package"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/your-org/keysentinel.git"
+    },
+    "keywords": [
+        "github-action",
+        "security",
+        "secrets",
+        "scanning",
+        "pull-request"
+    ],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "@actions/core": "^1.10.1",
+        "@actions/github": "^6.0.0",
+        "js-yaml": "^4.1.0"
+    },
+    "devDependencies": {
+        "@types/jest": "^30.0.0",
+        "@types/js-yaml": "^4.0.9",
+        "@types/node": "^20.11.0",
+        "@vercel/ncc": "^0.38.1",
+        "jest": "^30.2.0",
+        "ts-jest": "^29.4.6",
+        "typescript": "^5.3.3"
+    }
+}

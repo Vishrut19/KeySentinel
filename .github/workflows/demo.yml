@@ -1,0 +1,29 @@
+name: KeySentinel Demo
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  scan-secrets:
+    name: Scan for Secrets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run KeySentinel
+        uses: ./
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on: high
+          post_no_findings: false
+          # Optional: add custom ignore patterns
+          # ignore: "*.test.ts,fixtures/**"
+          # Optional: add allowlist patterns
+          # allowlist: "EXAMPLE_[A-Z]+,test_api_key_.*"

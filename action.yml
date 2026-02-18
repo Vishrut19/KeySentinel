@@ -1,0 +1,46 @@
+name: 'KeySentinel'
+description: 'Scans PR diffs for secrets (API keys, tokens, passwords) and comments findings'
+author: 'KeySentinel Contributors'
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  github_token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+  fail_on:
+    description: 'Fail the workflow if secrets found at this severity or higher (high|medium|low|off)'
+    required: false
+    default: 'high'
+  post_no_findings:
+    description: 'Post a comment even when no secrets are found'
+    required: false
+    default: 'false'
+  ignore:
+    description: 'Comma-separated file glob patterns to ignore'
+    required: false
+    default: ''
+  allowlist:
+    description: 'Comma-separated regex patterns for allowed strings'
+    required: false
+    default: ''
+  max_files:
+    description: 'Maximum number of files to scan'
+    required: false
+    default: '100'
+  config_path:
+    description: 'Path to config file'
+    required: false
+    default: '.keysentinel.yml'
+
+outputs:
+  secrets_found:
+    description: 'Number of secrets found'
+  findings:
+    description: 'JSON string of all findings'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

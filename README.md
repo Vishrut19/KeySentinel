@@ -1,6 +1,6 @@
 # KeySentinel
 
-A GitHub Action that scans Pull Request diffs for secrets, API keys, tokens, and sensitive data. Designed to catch accidental credential leaks before they reach your main branch.
+GitHub Action that scans Pull Request diffs for leaked secrets (API keys, tokens, passwords). Designed to catch accidental credential leaks before they reach your main branch.
 
 ## Features
 

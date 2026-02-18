@@ -1,4 +1,4 @@
-name: 'KeySentinel'
+name: 'KeySentinel PR Secret Scanner'
 description: 'Scans PR diffs for secrets (API keys, tokens, passwords) and comments findings'
 author: 'KeySentinel Contributors'
 branding:

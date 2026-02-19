@@ -15,10 +15,12 @@ GitHub Action that scans Pull Request diffs for leaked secrets (API keys, tokens
 
 ## Quick Start
 
-Add this workflow to your repository at `.github/workflows/keysentinel.yml`:
+**Step:1** Create a workflow file.
+Create `.github/workflow/keysentinel.yml`
 
-```yaml
-name: Secret Scanning
+Paste this
+```
+name: KeySentinel
 
 on:
   pull_request:
@@ -34,28 +36,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: your-org/keysentinel@v0.1.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: Vishrut19/KeySentinel@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
+**Step:2** Enable Write Permissions in Repo Settings
 
-## Installation
+Repo -> Settings -> Actions -> General -> Workflow Permissions -> Select ✅ Read and write permissions -> Save
 
-### Option 1: Use from GitHub Marketplace
-
-```yaml
-- uses: your-org/keysentinel@v0.1.0
-  with:
-    github_token: ${{ secrets.GITHUB_TOKEN }}
-```
-
-### Option 2: Use from the same repository
-
-```yaml
-- uses: ./
-  with:
-    github_token: ${{ secrets.GITHUB_TOKEN }}
-```
+**Step:3** Open a PR and it will automatically check for leaked API keys, tokens and passwords.
 
 ## Configuration
 

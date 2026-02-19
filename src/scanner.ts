@@ -161,11 +161,12 @@ export function scanLines(
 export function generateReport(findings: Finding[], filesScanned: number): string {
   const lines: string[] = [];
 
-  lines.push('## :rotating_light: KeySentinel Security Scan Results');
-  lines.push('');
-
   if (findings.length === 0) {
-    lines.push(':white_check_mark: **No secrets detected** in this pull request.');
+    lines.push('<!-- keysentinel:comment -->');
+    lines.push('');
+    lines.push('## :white_check_mark: KeySentinel — Secret Scan');
+    lines.push('');
+    lines.push('**Status:** ✅ No secrets detected');
     lines.push('');
     lines.push(`_Scanned ${filesScanned} file(s)._`);
     return lines.join('\n');
@@ -175,49 +176,62 @@ export function generateReport(findings: Finding[], filesScanned: number): strin
   const mediumCount = findings.filter(f => f.severity === 'medium').length;
   const lowCount = findings.filter(f => f.severity === 'low').length;
 
-  lines.push(`> :warning: **Found ${findings.length} potential secret(s)** in this pull request.`);
-  lines.push('');
+  // Status indicator
+  const statusIcon = highCount > 0 ? ':x:' : ':warning:';
+  const statusText = highCount > 0 ? 'Potential secrets detected' : 'Potential secrets detected';
 
-  if (highCount > 0) lines.push(`:red_circle: **High:** ${highCount}`);
-  if (mediumCount > 0) lines.push(`:orange_circle: **Medium:** ${mediumCount}`);
-  if (lowCount > 0) lines.push(`:yellow_circle: **Low:** ${lowCount}`);
-  lines.push('');
+  // Build summary line
+  const parts: string[] = [];
+  if (highCount > 0) parts.push(`:red_circle: High: ${highCount}`);
+  if (mediumCount > 0) parts.push(`:orange_circle: Medium: ${mediumCount}`);
+  if (lowCount > 0) parts.push(`:yellow_circle: Low: ${lowCount}`);
 
+  lines.push('<!-- keysentinel:comment -->');
+  lines.push('');
+  lines.push('## :lock: KeySentinel — Secret Scan');
+  lines.push('');
+  lines.push(`**Status:** ${statusIcon} ${statusText}`);
+  lines.push('');
+  lines.push(`**Summary:** **${findings.length} finding${findings.length !== 1 ? 's' : ''}** (${parts.join(' • ')}) • Scanned **${filesScanned}** file(s)`);
+  lines.push('');
   lines.push('### Findings');
   lines.push('');
-  lines.push('| Severity | File | Line | Type | Confidence | Snippet |');
-  lines.push('|----------|------|------|------|------------|---------|');
+  lines.push('| Severity | File | Line | Rule | Confidence | Preview |');
+  lines.push('|:---|:---|---:|:---|:---|:---|');
 
   for (const finding of findings) {
-    const severityIcon = {
-      high: ':red_circle:',
-      medium: ':orange_circle:',
-      low: ':yellow_circle:',
-    }[finding.severity];
+    const severityLabel = finding.severity === 'high' 
+      ? ':red_circle: High' 
+      : finding.severity === 'medium' 
+        ? ':orange_circle: Medium' 
+        : ':yellow_circle: Low';
 
     const lineStr = finding.line !== null ? `${finding.line}` : 'N/A';
     const snippet = finding.snippet.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+    const ruleName = finding.type.toLowerCase().replace(/\s+/g, '_');
 
     lines.push(
-      `| ${severityIcon} ${finding.severity} | \`${finding.file}\` | ${lineStr} | ${finding.type} | ${finding.confidence} | \`${snippet}\` |`
+      `| ${severityLabel} | \`${finding.file}\` | ${lineStr} | \`${ruleName}\` | ${finding.confidence} | \`${snippet}\` |`
     );
   }
 
   lines.push('');
-  lines.push('---');
-  lines.push('');
   lines.push('<details>');
-  lines.push('<summary>What to do?</summary>');
+  lines.push('<summary><strong>:white_check_mark: What to do next</strong></summary>');
   lines.push('');
-  lines.push('1. **Review each finding** - Verify if the detected value is actually a secret');
-  lines.push('2. **Remove secrets** - If confirmed, remove the secret from your code');
-  lines.push('3. **Rotate compromised secrets** - If a secret was committed, consider it compromised and rotate it');
-  lines.push('4. **Use environment variables** - Store secrets in environment variables or a secrets manager');
-  lines.push('5. **Add to allowlist** - If a finding is a false positive, add the pattern to `.keysentinel.yml`');
+  lines.push('1. **Remove the secret from code** (recommended)');
+  lines.push('   - Move to environment variables (e.g. `.env`, GitHub Secrets)');
+  lines.push('2. **Rotate the key** if it was real and may have leaked.');
+  lines.push('3. If this is a **false positive**, allowlist it:');
+  lines.push('');
+  lines.push('```yaml');
+  lines.push('# .keysentinel.yml');
+  lines.push('allowlist:');
+  lines.push("  - 'FAKE_SECRET_1234567890'");
+  lines.push('```');
   lines.push('');
   lines.push('</details>');
   lines.push('');
-  lines.push(`_Scanned ${filesScanned} file(s) with KeySentinel._`);
 
   return lines.join('\n');
 }

@@ -209,6 +209,14 @@ export async function upsertComment(
       await sleep(60000);
       return upsertComment(octokit, owner, repo, pullNumber, body);
     }
+    if (isPermissionError(error)) {
+      const status = getErrorStatus(error);
+      core.error(
+        `HTTP ${status}: Insufficient permissions to comment. ` +
+        'Enable "Actions: write" permission in Settings > Actions > General > Workflow permissions.'
+      );
+      return;
+    }
     throw error;
   }
 }
@@ -256,9 +264,32 @@ export function getPRHeadSha(): string {
 
 function isRateLimitError(error: unknown): boolean {
   if (error && typeof error === 'object' && 'status' in error) {
-    return (error as { status: number }).status === 403 || (error as { status: number }).status === 429;
+    // 429 = Too Many Requests (rate limit)
+    // 403 with rate limit message = Secondary rate limit
+    const status = (error as { status: number }).status;
+    if (status === 429) return true;
+    if (status === 403) {
+      // Check if it's actually a rate limit or a permissions issue
+      const message = String((error as { message?: string }).message || '');
+      return message.toLowerCase().includes('rate') || message.toLowerCase().includes('limit');
+    }
   }
   return false;
+}
+
+function isPermissionError(error: unknown): boolean {
+  if (error && typeof error === 'object' && 'status' in error) {
+    const status = (error as { status: number }).status;
+    return status === 401 || status === 403;
+  }
+  return false;
+}
+
+function getErrorStatus(error: unknown): number | null {
+  if (error && typeof error === 'object' && 'status' in error) {
+    return (error as { status: number }).status;
+  }
+  return null;
 }
 
 function isNotFoundError(error: unknown): boolean {

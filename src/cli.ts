@@ -6,6 +6,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
+import * as readline from "readline";
 import { loadConfigForCli, shouldIgnoreFile } from "./config";
 import { getEnabledPatterns } from "./patterns";
 import { extractAddedLines, scanLines, shouldFail } from "./scanner";
@@ -352,10 +353,213 @@ function printFindings(
   process.exit(0);
 }
 
+function askQuestion(rl: readline.Interface, question: string): Promise<string> {
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      resolve(answer.trim());
+    });
+  });
+}
+
+async function cmdInit(): Promise<void> {
+  const cwd = process.cwd();
+  const gitRoot = findGitRoot(cwd);
+  
+  if (!gitRoot) {
+    console.error(
+      "keysentinel: not a git repository (or any parent). Run from a repo root.",
+    );
+    process.exit(1);
+  }
+
+  const configPath = path.join(gitRoot, ".keysentinel.yml");
+  
+  if (fs.existsSync(configPath)) {
+    console.log("⚠️  .keysentinel.yml already exists.");
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    const overwrite = await askQuestion(rl, "Overwrite? (y/N): ");
+    rl.close();
+    if (overwrite.toLowerCase() !== "y") {
+      console.log("Aborted.");
+      process.exit(0);
+    }
+  }
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  console.log("\n🔐 KeySentinel Configuration Wizard\n");
+  console.log("This wizard will help you create a .keysentinel.yml config file.\n");
+
+  // Security level selection
+  console.log("📊 Security Level:");
+  console.log("  1. Strict (fail_on: low)    - Maximum security, catches everything");
+  console.log("  2. Balanced (fail_on: medium) - Good security with fewer false positives");
+  console.log("  3. Relaxed (fail_on: high)    - Only high-confidence secrets (default)");
+  console.log("  4. Off (fail_on: off)         - Detection only, never blocks\n");
+
+  const securityChoice = await askQuestion(rl, "Choose security level (1-4) [3]: ");
+  
+  let failOn = "high";
+  switch (securityChoice) {
+    case "1": failOn = "low"; break;
+    case "2": failOn = "medium"; break;
+    case "3": failOn = "high"; break;
+    case "4": failOn = "off"; break;
+    default: failOn = "high";
+  }
+
+  // Post no findings
+  const postNoFindings = await askQuestion(rl, "\n📢 Post 'no findings' comments in PRs? (Y/n) [Y]: ");
+  const shouldPostNoFindings = postNoFindings.toLowerCase() !== "n";
+
+  // Pattern groups
+  console.log("\n🔍 Detection Patterns:");
+  const patterns: Record<string, boolean> = {};
+  
+  const patternGroups = [
+    { key: "aws", name: "AWS Keys" },
+    { key: "github", name: "GitHub Tokens" },
+    { key: "slack", name: "Slack Tokens" },
+    { key: "stripe", name: "Stripe Keys" },
+    { key: "google", name: "Google API Keys" },
+    { key: "generic", name: "Generic API Keys" },
+    { key: "keys", name: "Private Keys (RSA, SSH, PGP)" },
+    { key: "database", name: "Database Connection Strings" },
+    { key: "jwt", name: "JWT Secrets" },
+    { key: "npm", name: "NPM Tokens" },
+    { key: "discord", name: "Discord Tokens" },
+    { key: "heroku", name: "Heroku API Keys" },
+    { key: "twilio", name: "Twilio Keys" },
+    { key: "sendgrid", name: "SendGrid Keys" },
+    { key: "mailchimp", name: "Mailchimp Keys" },
+  ];
+
+  const enableAll = await askQuestion(rl, "Enable all pattern groups? (Y/n) [Y]: ");
+  const enableAllPatterns = enableAll.toLowerCase() !== "n";
+
+  for (const group of patternGroups) {
+    patterns[group.key] = enableAllPatterns;
+  }
+
+  if (!enableAllPatterns) {
+    console.log("\nSelect patterns to enable:");
+    for (const group of patternGroups) {
+      const enable = await askQuestion(rl, `  ${group.name}? (Y/n) [Y]: `);
+      patterns[group.key] = enable.toLowerCase() !== "n";
+    }
+  }
+
+  // Entropy detection
+  console.log("\n🧠 Entropy Detection (catches unknown secret formats):");
+  const enableEntropy = await askQuestion(rl, "Enable entropy detection? (Y/n) [Y]: ");
+  const entropyEnabled = enableEntropy.toLowerCase() !== "n";
+
+  // Ignore patterns
+  console.log("\n📁 Files to Ignore:");
+  const customIgnores: string[] = [];
+  
+  const addIgnores = await askQuestion(rl, "Add custom ignore patterns? (y/N) [N]: ");
+  if (addIgnores.toLowerCase() === "y") {
+    console.log("Enter patterns (press Enter twice to finish):");
+    while (true) {
+      const pattern = await askQuestion(rl, "  Pattern: ");
+      if (!pattern) break;
+      customIgnores.push(pattern);
+    }
+  }
+
+  // Allowlist patterns
+  console.log("\n✅ Allowlist Patterns (for false positives):");
+  const customAllowlist: string[] = [];
+  
+  const addAllowlist = await askQuestion(rl, "Add allowlist patterns? (y/N) [N]: ");
+  if (addAllowlist.toLowerCase() === "y") {
+    console.log("Enter patterns (press Enter twice to finish):");
+    console.log("  Examples: EXAMPLE_.*, test_.*, fake_.*");
+    while (true) {
+      const pattern = await askQuestion(rl, "  Pattern: ");
+      if (!pattern) break;
+      customAllowlist.push(pattern);
+    }
+  }
+
+  rl.close();
+
+  // Generate config file
+  const configLines: string[] = [
+    "# KeySentinel Configuration",
+    "# Generated by keysentinel init",
+    "",
+    `# Security Level: ${failOn === "low" ? "Strict" : failOn === "medium" ? "Balanced" : failOn === "high" ? "Relaxed" : "Off"}`,
+    `fail_on: ${failOn}`,
+    "",
+    "# Post comment even when no secrets found",
+    `post_no_findings: ${shouldPostNoFindings}`,
+    "",
+    "# Maximum files to scan per PR",
+    "max_files: 100",
+    "",
+  ];
+
+  if (customIgnores.length > 0) {
+    configLines.push("# Files to ignore (in addition to defaults)");
+    configLines.push("ignore:");
+    for (const ignore of customIgnores) {
+      configLines.push(`  - "${ignore}"`);
+    }
+    configLines.push("");
+  }
+
+  if (customAllowlist.length > 0) {
+    configLines.push("# Patterns to allowlist (regex)");
+    configLines.push("allowlist:");
+    for (const pattern of customAllowlist) {
+      configLines.push(`  - "${pattern}"`);
+    }
+    configLines.push("");
+  }
+
+  configLines.push("# Enable/disable specific pattern groups");
+  configLines.push("patterns:");
+  for (const [key, enabled] of Object.entries(patterns)) {
+    configLines.push(`  ${key}: ${enabled}`);
+  }
+  configLines.push("");
+
+  configLines.push("# Entropy detection (catches unknown secret formats)");
+  configLines.push("entropy:");
+  configLines.push(`  enabled: ${entropyEnabled}`);
+  configLines.push("  min_length: 20");
+  configLines.push("  threshold: 4.2");
+  configLines.push("  ignore_base64_like: true");
+
+  fs.writeFileSync(configPath, configLines.join("\n"), "utf8");
+
+  console.log("\n✅ Configuration saved to .keysentinel.yml");
+  console.log("\nNext steps:");
+  console.log("  1. Review the generated config file");
+  console.log("  2. Install git hooks: keysentinel install");
+  console.log("  3. Test with: keysentinel scan");
+  console.log("");
+}
+
 function main(): void {
   const arg = process.argv[2];
   if (arg === "install") {
     cmdInstall();
+    return;
+  }
+  if (arg === "init") {
+    cmdInit().then(() => process.exit(0)).catch((e) => {
+      console.error("Error:", e);
+      process.exit(1);
+    });
     return;
   }
   if (arg === "scan") {
@@ -374,6 +578,7 @@ function main(): void {
     console.log(`KeySentinel CLI — block secrets locally
 
 Usage:
+  keysentinel init         Run configuration wizard
   keysentinel install      Install pre-commit and pre-push hooks
   keysentinel scan         Scan staged files for secrets (for pre-commit)
   keysentinel scan-push    Scan commits being pushed (for pre-push)

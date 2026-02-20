@@ -53,21 +53,21 @@ Repo -> Settings -> Actions -> General -> Workflow Permissions -> Select ✅ Rea
 
 **Step:3** Open a PR and it will automatically check for leaked API keys, tokens and passwords.
 
-## Block secrets locally (pre-commit)
+## Block secrets locally (pre-commit & pre-push)
 
-Block secrets before they are pushed by installing the KeySentinel pre-commit hook. The same rules (`.keysentinel.yml`, allowlist, ignore) apply as in the GitHub Action.
+Block secrets before they are committed or pushed by installing KeySentinel git hooks. The same rules (`.keysentinel.yml`, allowlist, ignore) apply as in the GitHub Action.
 
 **Install the CLI**
 
 ```bash
-# Global install (recommended for pre-commit)
+# Global install (recommended for hooks)
 npm install -g keysentinel
 
 # Or as a project dev dependency
 npm install -D keysentinel
 ```
 
-**Install the pre-commit hook**
+**Install the git hooks**
 
 From your repo root:
 
@@ -75,7 +75,7 @@ From your repo root:
 keysentinel install
 ```
 
-This writes `.git/hooks/pre-commit` so that every commit runs `keysentinel scan` on staged changes. If any secret is found at or above your `fail_on` severity (see Configuration), the commit is blocked and findings are printed to the terminal. No secrets are sent off-machine; everything runs locally.
+This writes `.git/hooks/pre-commit` and `.git/hooks/pre-push` so that every commit and push runs `keysentinel scan` on staged changes. The hooks automatically use `keysentinel` if available in PATH, or fall back to `npx keysentinel scan` for local installs. If any secret is found at or above your `fail_on` severity (see Configuration), the commit/push is blocked and findings are printed to the terminal. No secrets are sent off-machine; everything runs locally.
 
 **Manual scan**
 

@@ -16,9 +16,13 @@ import {
 import { maskSecret } from './mask';
 import type { Finding } from './patterns';
 
-const PRE_COMMIT_HOOK = `#!/bin/sh
-# KeySentinel pre-commit hook - scan staged changes for secrets
-npx keysentinel scan
+const GIT_HOOK = `#!/bin/sh
+# KeySentinel hook - scan staged changes for secrets
+if command -v keysentinel >/dev/null 2>&1; then
+  keysentinel scan
+else
+  npx keysentinel scan
+fi
 exit $?
 `;
 
@@ -50,14 +54,22 @@ function cmdInstall(): void {
     process.exit(1);
   }
   const hooksDir = path.join(gitRoot, '.git', 'hooks');
-  const hookPath = path.join(hooksDir, 'pre-commit');
   if (!fs.existsSync(hooksDir)) {
     console.error('keysentinel: .git/hooks directory not found.');
     process.exit(1);
   }
-  fs.writeFileSync(hookPath, PRE_COMMIT_HOOK, 'utf8');
-  fs.chmodSync(hookPath, 0o755);
+  
+  const preCommitPath = path.join(hooksDir, 'pre-commit');
+  const prePushPath = path.join(hooksDir, 'pre-push');
+  
+  fs.writeFileSync(preCommitPath, GIT_HOOK, 'utf8');
+  fs.chmodSync(preCommitPath, 0o755);
+  
+  fs.writeFileSync(prePushPath, GIT_HOOK, 'utf8');
+  fs.chmodSync(prePushPath, 0o755);
+  
   console.log('Pre-commit hook installed at .git/hooks/pre-commit');
+  console.log('Pre-push hook installed at .git/hooks/pre-push');
 }
 
 function cmdScan(): void {
@@ -145,7 +157,7 @@ function main(): void {
     console.log(`KeySentinel CLI — block secrets locally
 
 Usage:
-  keysentinel install    Install pre-commit hook (scans staged files on commit)
+  keysentinel install    Install pre-commit and pre-push hooks (scans staged files)
   keysentinel scan       Scan staged files for secrets (default)
   keysentinel --help     Show this help
 

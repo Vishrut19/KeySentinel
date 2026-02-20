@@ -1,3 +1,5 @@
+![GitHub Marketplace](https://img.shields.io/badge/Marketplace-KeySentinel-blue)
+
 # KeySentinel
 
 GitHub Action that scans Pull Request diffs for leaked secrets (API keys, tokens, passwords). Designed to catch accidental credential leaks before they reach your main branch.

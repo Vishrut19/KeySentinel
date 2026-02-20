@@ -1,4 +1,6 @@
 ![GitHub Marketplace](https://img.shields.io/badge/Marketplace-KeySentinel-blue)
+![License](https://img.shields.io/github/license/Vishrut19/KeySentinel?style=flat-square)
+[![Latest Release](https://img.shields.io/github/v/release/Vishrut19/KeySentinel?style=flat-square)](https://github.com/Vishrut19/KeySentinel/releases)
 
 # KeySentinel
 

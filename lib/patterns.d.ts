@@ -7,6 +7,7 @@ export interface SecretPattern {
     pattern: RegExp;
     severity: Severity;
     group: string;
+    remediation: string;
 }
 export interface Finding {
     file: string;
@@ -16,6 +17,7 @@ export interface Finding {
     confidence: 'high' | 'medium' | 'low';
     snippet: string;
     rawValue: string;
+    remediation: string;
 }
 export declare const SECRET_PATTERNS: SecretPattern[];
 /**

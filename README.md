@@ -51,6 +51,10 @@ Repo -> Settings -> Actions -> General -> Workflow Permissions -> Select ✅ Rea
 
 **Step:3** Open a PR and it will automatically check for leaked API keys, tokens and passwords.
 
+## Screenshot
+
+<img width="1469" height="776" alt="Screenshot 2026-02-20 at 10 27 47 AM" src="https://github.com/user-attachments/assets/e9edc920-222c-45ab-8c97-f8e1ede956aa" />
+
 ## Configuration
 
 ### Action Inputs

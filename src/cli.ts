@@ -17,13 +17,21 @@ import { maskSecret } from './mask';
 import type { Finding } from './patterns';
 
 const GIT_HOOK = `#!/bin/sh
-# KeySentinel hook - scan staged changes for secrets
+echo "🔍 KeySentinel scanning for secrets..."
+
 if command -v keysentinel >/dev/null 2>&1; then
   keysentinel scan
 else
   npx keysentinel scan
 fi
-exit $?
+
+RESULT=$?
+if [ $RESULT -ne 0 ]; then
+  echo "❌ Blocked by KeySentinel (secret detected)"
+  exit 1
+fi
+
+exit 0
 `;
 
 function findGitRoot(cwd: string): string | null {

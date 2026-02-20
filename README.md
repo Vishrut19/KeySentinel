@@ -34,7 +34,23 @@
 
 ## 🚀 Quick Start
 
-### Option 1: GitHub Action (Recommended for Teams)
+### Option 1: Local Pre-commit Hook (Recommended for Individual Developers)
+
+**Install globally:**
+
+```bash
+npm install -g keysentinel
+```
+
+**Install git hooks:**
+
+```bash
+keysentinel install
+```
+
+Done! Now every commit and push will be scanned for secrets automatically.
+
+### Option 2: GitHub Action (Recommended for Teams)
 
 Add KeySentinel to your repository in **3 simple steps**:
 
@@ -69,20 +85,6 @@ Go to **Repository Settings → Actions → General → Workflow Permissions** �
 
 KeySentinel will automatically scan for secrets and post findings as PR comments! 🎉
 
-### Option 2: Local Pre-commit Hook (Recommended for Individual Developers)
-
-**Install globally:**
-```bash
-npm install -g keysentinel
-```
-
-**Install git hooks:**
-```bash
-keysentinel install
-```
-
-Done! Now every commit and push will be scanned for secrets automatically.
-
 ## 📸 What It Looks Like
 
 When KeySentinel finds secrets, it posts a clear, actionable comment on your PR:
@@ -112,6 +114,7 @@ keysentinel install
 ```
 
 This installs both `.git/hooks/pre-commit` and `.git/hooks/pre-push` hooks that automatically scan staged changes. The hooks:
+
 - ✅ Use `keysentinel` if available in PATH
 - ✅ Fall back to `npx keysentinel scan` for local installs
 - ✅ Block commits/pushes when secrets are detected
@@ -126,6 +129,7 @@ keysentinel scan
 ```
 
 **Exit codes:**
+
 - `0` - No secrets found (or below `fail_on` threshold)
 - `1` - Secrets detected at or above `fail_on` severity
 
@@ -137,15 +141,15 @@ KeySentinel is highly configurable. Use action inputs for quick setup, or create
 
 ### Action Inputs
 
-| Input | Description | Default |
-|-------|-------------|---------|
-| `github_token` | GitHub token for API access | `${{ github.token }}` |
-| `fail_on` | Fail workflow at this severity (`high`, `medium`, `low`, `off`) | `high` |
-| `post_no_findings` | Post comment when no secrets found | `false` |
-| `ignore` | Comma-separated file globs to ignore | (see defaults) |
-| `allowlist` | Comma-separated regex patterns to allow | `""` |
-| `max_files` | Maximum files to scan per PR | `100` |
-| `config_path` | Path to config file | `.keysentinel.yml` |
+| Input              | Description                                                     | Default               |
+| ------------------ | --------------------------------------------------------------- | --------------------- |
+| `github_token`     | GitHub token for API access                                     | `${{ github.token }}` |
+| `fail_on`          | Fail workflow at this severity (`high`, `medium`, `low`, `off`) | `high`                |
+| `post_no_findings` | Post comment when no secrets found                              | `false`               |
+| `ignore`           | Comma-separated file globs to ignore                            | (see defaults)        |
+| `allowlist`        | Comma-separated regex patterns to allow                         | `""`                  |
+| `max_files`        | Maximum files to scan per PR                                    | `100`                 |
+| `config_path`      | Path to config file                                             | `.keysentinel.yml`    |
 
 ### Configuration File
 
@@ -153,7 +157,7 @@ Create `.keysentinel.yml` in your repository root for advanced configuration. Th
 
 ```yaml
 # Severity threshold for failing workflows
-fail_on: high  # Options: high | medium | low | off
+fail_on: high # Options: high | medium | low | off
 
 # Post comment even when no secrets found
 post_no_findings: false
@@ -217,18 +221,18 @@ These patterns are automatically ignored:
 
 KeySentinel detects **50+ secret patterns** across major services:
 
-| Category | Detected Patterns |
-|----------|------------------|
-| **🔷 AWS** | Access Key ID (`AKIA...`), Secret Access Key |
-| **🐙 GitHub** | Personal Access Token (`ghp_...`), OAuth Token, App Token, Fine-Grained Token |
-| **💬 Slack** | Bot Token (`xoxb-...`), User Token (`xoxp-...`), Webhook URL |
-| **💳 Stripe** | Live Key (`sk_live_...`), Test Key (`sk_test_...`), Restricted Key |
-| **🔍 Google** | API Key, OAuth Client Secret |
-| **🔑 Private Keys** | RSA, SSH, PGP, EC private keys |
-| **🗄️ Database** | MongoDB, PostgreSQL, MySQL, Redis connection strings |
-| **📧 Email Services** | Twilio, SendGrid, Mailchimp API keys |
-| **🔐 Generic** | API keys, Bearer tokens, Basic auth credentials |
-| **📦 Others** | NPM tokens, Discord tokens, Heroku API keys, JWT secrets |
+| Category              | Detected Patterns                                                             |
+| --------------------- | ----------------------------------------------------------------------------- |
+| **🔷 AWS**            | Access Key ID (`AKIA...`), Secret Access Key                                  |
+| **🐙 GitHub**         | Personal Access Token (`ghp_...`), OAuth Token, App Token, Fine-Grained Token |
+| **💬 Slack**          | Bot Token (`xoxb-...`), User Token (`xoxp-...`), Webhook URL                  |
+| **💳 Stripe**         | Live Key (`sk_live_...`), Test Key (`sk_test_...`), Restricted Key            |
+| **🔍 Google**         | API Key, OAuth Client Secret                                                  |
+| **🔑 Private Keys**   | RSA, SSH, PGP, EC private keys                                                |
+| **🗄️ Database**       | MongoDB, PostgreSQL, MySQL, Redis connection strings                          |
+| **📧 Email Services** | Twilio, SendGrid, Mailchimp API keys                                          |
+| **🔐 Generic**        | API keys, Bearer tokens, Basic auth credentials                               |
+| **📦 Others**         | NPM tokens, Discord tokens, Heroku API keys, JWT secrets                      |
 
 > 💡 **Smart Detection:** KeySentinel uses entropy analysis to catch high-entropy strings that match secret patterns, even if they don't match known formats.
 
@@ -241,10 +245,10 @@ When secrets are detected, KeySentinel posts a formatted comment on your PR:
 > 🔴 **High:** 1  
 > 🟠 **Medium:** 1
 >
-> | Severity | File | Line | Type | Confidence | Preview |
-> |:---|:---|---:|:---|:---|:---|
-> | 🔴 High | `src/config.ts` | 15 | AWS Access Key ID | high | `aws_key = "AKI**********XYZ"` |
-> | 🟠 Medium | `api/handler.ts` | 42 | Generic API Key | high | `api_key: "abc**********xyz"` |
+> | Severity  | File             | Line | Type              | Confidence | Preview                        |
+> | :-------- | :--------------- | ---: | :---------------- | :--------- | :----------------------------- |
+> | 🔴 High   | `src/config.ts`  |   15 | AWS Access Key ID | high       | `aws_key = "AKI**********XYZ"` |
+> | 🟠 Medium | `api/handler.ts` |   42 | Generic API Key   | high       | `api_key: "abc**********xyz"`  |
 
 ## 🎛️ Advanced Usage
 
@@ -272,7 +276,7 @@ Fail on medium or high severity:
 - uses: Vishrut19/KeySentinel@v0
   with:
     github_token: ${{ github.token }}
-    fail_on: medium  # Fail on medium and high
+    fail_on: medium # Fail on medium and high
 ```
 
 ### Ignore Specific Files
@@ -407,18 +411,21 @@ We're building premium features to help teams scale:
 We're constantly improving KeySentinel. Here's what's coming:
 
 ### 🎯 Q2 2025
+
 - [ ] Custom pattern builder UI
 - [ ] Slack/Teams integration
 - [ ] Enhanced analytics dashboard
 - [ ] GitLab CI/CD support
 
 ### 🎯 Q3 2025
+
 - [ ] ML-based secret detection
 - [ ] Historical repository scanning
 - [ ] Enterprise SSO integration
 - [ ] API for custom integrations
 
 ### 🎯 Future
+
 - [ ] IDE plugins (VS Code, IntelliJ)
 - [ ] Real-time scanning service
 - [ ] Compliance reporting (SOC2, ISO27001)
@@ -441,6 +448,7 @@ Your support helps us build better tools for the developer community! 🙏
 ## 🤝 Contributing
 
 Contributions are welcome! Whether it's:
+
 - 🐛 Reporting bugs
 - 💡 Suggesting features
 - 📝 Improving documentation
@@ -449,6 +457,7 @@ Contributions are welcome! Whether it's:
 We appreciate your help making KeySentinel better for everyone.
 
 **Getting started:**
+
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add amazing feature'`)

@@ -1,9 +1,9 @@
-name: 'KeySentinel PR Secret Scanner'
-description: 'Scans PR diffs for secrets (API keys, tokens, passwords) and comments findings'
-author: 'KeySentinel Contributors'
+name: KeySentinel PR Secret Scanner
+description: Detect and prevent leaked API keys and secrets in Pull Requests with automated scanning and prevention.
+
 branding:
-  icon: 'shield'
-  color: 'red'
+  icon: shield
+  color: red
 
 inputs:
   github_token:

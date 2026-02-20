@@ -101,6 +101,7 @@ async function run(): Promise<void> {
       severity: f.severity,
       confidence: f.confidence,
       snippet: f.snippet,
+      remediation: f.remediation,
     }));
     core.setOutput('findings', JSON.stringify(safeFindings));
 
@@ -117,11 +118,13 @@ async function run(): Promise<void> {
     if (shouldFail(allFindings, config.failOn)) {
       for (const finding of allFindings) {
         core.warning(
-          `${finding.severity.toUpperCase()}: ${finding.type} in ${finding.file}:${finding.line ?? 'N/A'} - ${maskSecret(finding.rawValue)}`
+          `🚨 ${finding.severity.toUpperCase()}: ${finding.type} in ${finding.file}:${finding.line ?? 'N/A'} — ${maskSecret(finding.rawValue)}\n` +
+          `   🔧 Fix: ${finding.remediation}`
         );
       }
       core.setFailed(
-        `KeySentinel found ${allFindings.length} potential secret(s) at or above "${config.failOn}" severity`
+        `🚨 KeySentinel BLOCKED this PR: ${allFindings.length} secret(s) detected at or above "${config.failOn}" severity. ` +
+        `Remove the secrets, rotate the credentials, and push again. See the PR comment for detailed fix instructions.`
       );
     }
 

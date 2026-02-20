@@ -117,6 +117,7 @@ export function scanLines(
         confidence: 'high',
         snippet: maskLine(line, match),
         rawValue: match,
+        remediation: pattern.remediation,
       });
     }
 
@@ -147,6 +148,7 @@ export function scanLines(
           confidence: entropy >= 5.0 ? 'high' : 'medium',
           snippet: maskLine(line, value),
           rawValue: value,
+          remediation: 'This looks like a randomly generated secret or token. Remove it from source code and use environment variables or a secrets manager instead. If this was already pushed, rotate the credential.',
         });
       }
     }
@@ -196,10 +198,11 @@ export function generateReport(findings: Finding[], filesScanned: number): strin
   lines.push('');
   lines.push('### Findings');
   lines.push('');
-  lines.push('| Severity | File | Line | Rule | Confidence | Preview |');
-  lines.push('|:---|:---|---:|:---|:---|:---|');
+  lines.push('| # | Severity | File | Line | Rule | Confidence | Preview |');
+  lines.push('|---:|:---|:---|---:|:---|:---|:---|');
 
-  for (const finding of findings) {
+  for (let i = 0; i < findings.length; i++) {
+    const finding = findings[i];
     const severityLabel = finding.severity === 'high' 
       ? ':red_circle: High' 
       : finding.severity === 'medium' 
@@ -211,23 +214,60 @@ export function generateReport(findings: Finding[], filesScanned: number): strin
     const ruleName = finding.type.toLowerCase().replace(/\s+/g, '_');
 
     lines.push(
-      `| ${severityLabel} | \`${finding.file}\` | ${lineStr} | \`${ruleName}\` | ${finding.confidence} | \`${snippet}\` |`
+      `| ${i + 1} | ${severityLabel} | \`${finding.file}\` | ${lineStr} | \`${ruleName}\` | ${finding.confidence} | \`${snippet}\` |`
     );
   }
 
   lines.push('');
+  lines.push('---');
+  lines.push('');
+  lines.push('### :hammer_and_wrench: How to Fix Each Finding');
+  lines.push('');
+
+  for (let i = 0; i < findings.length; i++) {
+    const finding = findings[i];
+    const severityEmoji = finding.severity === 'high' ? '🔴' : finding.severity === 'medium' ? '🟠' : '🟡';
+    lines.push(`**${i + 1}. ${severityEmoji} ${finding.type}** in \`${finding.file}:${finding.line ?? 'N/A'}\``);
+    lines.push('');
+    lines.push(`> ${finding.remediation}`);
+    lines.push('');
+  }
+
+  lines.push('---');
+  lines.push('');
   lines.push('<details>');
-  lines.push('<summary><strong>:white_check_mark: What to do next</strong></summary>');
+  lines.push('<summary><strong>:no_entry_sign: This PR is blocked — here\'s how to unblock it</strong></summary>');
   lines.push('');
-  lines.push('1. **Remove the secret from code** (recommended)');
-  lines.push('   - Move to environment variables (e.g. `.env`, GitHub Secrets)');
-  lines.push('2. **Rotate the key** if it was real and may have leaked.');
-  lines.push('3. If this is a **false positive**, allowlist it:');
+  lines.push('#### Step 1: Remove the secret from your code');
+  lines.push('```bash');
+  lines.push('# Unstage the file, fix it, then re-stage');
+  lines.push('git reset HEAD <file>');
+  lines.push('# Edit the file to remove the secret');
+  lines.push('# Use environment variables instead:');
+  lines.push('#   process.env.MY_SECRET  (Node.js)');
+  lines.push('#   os.environ["MY_SECRET"]  (Python)');
+  lines.push('git add <file>');
+  lines.push('git commit --amend');
+  lines.push('git push --force-with-lease');
+  lines.push('```');
   lines.push('');
+  lines.push('#### Step 2: Rotate the leaked credential');
+  lines.push('Even after removing from code, the secret exists in git history.');
+  lines.push('**You MUST rotate/revoke the credential** — see the specific fix for each finding above.');
+  lines.push('');
+  lines.push('#### Step 3: Clean git history (if already pushed)');
+  lines.push('```bash');
+  lines.push('# Use git-filter-repo or BFG Repo-Cleaner to remove from history');
+  lines.push('pip install git-filter-repo');
+  lines.push('git filter-repo --invert-paths --path <file-with-secret>');
+  lines.push('# Or use BFG: https://rtyley.github.io/bfg-repo-cleaner/');
+  lines.push('```');
+  lines.push('');
+  lines.push('#### False positive? Allowlist it:');
   lines.push('```yaml');
   lines.push('# .keysentinel.yml');
   lines.push('allowlist:');
-  lines.push("  - 'FAKE_SECRET_1234567890'");
+  lines.push("  - 'EXAMPLE_PATTERN_HERE'");
   lines.push('```');
   lines.push('');
   lines.push('</details>');

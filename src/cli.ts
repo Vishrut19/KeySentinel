@@ -10,7 +10,7 @@ import { loadConfigForCli, shouldIgnoreFile } from "./config";
 import { getEnabledPatterns } from "./patterns";
 import { extractAddedLines, scanLines, shouldFail } from "./scanner";
 import { maskSecret } from "./mask";
-import type { Finding } from "./patterns";
+import type { Finding, Severity } from "./patterns";
 
 const PRE_COMMIT_HOOK = `#!/bin/sh
 echo "🔍 KeySentinel scanning for secrets..."
@@ -161,38 +161,7 @@ function cmdScan(): void {
     process.exit(0);
   }
 
-  // Terminal-friendly report
-  const highCount = allFindings.filter((f) => f.severity === "high").length;
-  const mediumCount = allFindings.filter((f) => f.severity === "medium").length;
-  const lowCount = allFindings.filter((f) => f.severity === "low").length;
-  console.error("");
-  console.error("KeySentinel found potential secret(s) in staged changes:");
-  console.error(
-    `  High: ${highCount}, Medium: ${mediumCount}, Low: ${lowCount}`,
-  );
-  console.error("");
-  for (const f of allFindings) {
-    const sev = f.severity.toUpperCase();
-    const line = f.line != null ? String(f.line) : "?";
-    const snippet = f.snippet.replace(/\n/g, " ");
-    console.error(`  [${sev}] ${f.file}:${line} — ${f.type}`);
-    console.error(`      ${snippet}`);
-    console.error(`      (raw masked: ${maskSecret(f.rawValue)})`);
-  }
-  console.error("");
-  console.error(
-    "Remove or allowlist these before committing. See .keysentinel.yml allowlist.",
-  );
-  console.error("");
-
-  if (shouldFail(allFindings, config.failOn)) {
-    process.exit(1);
-  }
-  
-  // If secrets found but below threshold, still warn but don't block
-  console.error("⚠️  Secrets found but below 'fail_on' threshold. Commit allowed.");
-  console.error(`   Current threshold: ${config.failOn}. Adjust in .keysentinel.yml if needed.`);
-  process.exit(0);
+  printFindings(allFindings, config.failOn, "commit");
 }
 
 function cmdScanPush(): void {
@@ -316,36 +285,70 @@ function cmdScanPush(): void {
     process.exit(0);
   }
 
-  // Terminal-friendly report
+  printFindings(allFindings, config.failOn, "push");
+}
+
+function printFindings(
+  allFindings: Finding[],
+  failOn: Severity | "off",
+  action: "commit" | "push",
+): void {
   const highCount = allFindings.filter((f) => f.severity === "high").length;
   const mediumCount = allFindings.filter((f) => f.severity === "medium").length;
   const lowCount = allFindings.filter((f) => f.severity === "low").length;
+  const willBlock = shouldFail(allFindings, failOn);
+
   console.error("");
-  console.error(`KeySentinel found potential secret(s) in ${commitsToScan.length} commit(s) being pushed:`);
-  console.error(
-    `  High: ${highCount}, Medium: ${mediumCount}, Low: ${lowCount}`,
-  );
-  console.error("");
-  for (const f of allFindings) {
-    const sev = f.severity.toUpperCase();
-    const line = f.line != null ? String(f.line) : "?";
-    const snippet = f.snippet.replace(/\n/g, " ");
-    console.error(`  [${sev}] ${f.file}:${line} — ${f.type}`);
-    console.error(`      ${snippet}`);
-    console.error(`      (raw masked: ${maskSecret(f.rawValue)})`);
+  console.error("╔══════════════════════════════════════════════════════════════╗");
+  if (willBlock) {
+    console.error("║  🚨 KEYSENTINEL: SECRET LEAK DETECTED — " + action.toUpperCase() + " BLOCKED" + " ".repeat(Math.max(0, 17 - action.length)) + "║");
+  } else {
+    console.error("║  ⚠️  KEYSENTINEL: POTENTIAL SECRETS FOUND                    ║");
   }
+  console.error("╚══════════════════════════════════════════════════════════════╝");
   console.error("");
-  console.error(
-    "Remove or allowlist these before pushing. See .keysentinel.yml allowlist.",
-  );
+  console.error(`  Found ${allFindings.length} potential secret(s): 🔴 High: ${highCount}  🟠 Medium: ${mediumCount}  🟡 Low: ${lowCount}`);
   console.error("");
 
-  if (shouldFail(allFindings, config.failOn)) {
+  for (let i = 0; i < allFindings.length; i++) {
+    const f = allFindings[i];
+    const sevIcon = f.severity === "high" ? "🔴" : f.severity === "medium" ? "🟠" : "🟡";
+    const line = f.line != null ? String(f.line) : "?";
+    const snippet = f.snippet.replace(/\n/g, " ");
+    console.error(`  ${sevIcon} Finding #${i + 1}: ${f.type}`);
+    console.error(`     File: ${f.file}:${line}`);
+    console.error(`     Preview: ${snippet}`);
+    console.error(`     Masked value: ${maskSecret(f.rawValue)}`);
+    console.error(`     🔧 Fix: ${f.remediation}`);
+    console.error("");
+  }
+
+  console.error("────────────────────────────────────────────────────────────────");
+  console.error("");
+
+  if (willBlock) {
+    console.error(`  ❌ ${action.toUpperCase()} BLOCKED: Secrets at or above "${failOn}" severity found.`);
+    console.error("");
+    console.error("  To fix this:");
+    console.error(`    1. Remove the secret from your code`);
+    console.error(`    2. Use environment variables or a .env file (added to .gitignore)`);
+    console.error(`    3. Rotate/revoke the leaked credential (see fix instructions above)`);
+    console.error(`    4. Stage your fixes: git add <file>`);
+    if (action === "push") {
+      console.error(`    5. Amend the commit: git commit --amend`);
+      console.error(`    6. Push again: git push --force-with-lease`);
+    }
+    console.error("");
+    console.error("  False positive? Add to .keysentinel.yml:");
+    console.error("    allowlist:");
+    console.error("      - 'YOUR_PATTERN_HERE'");
+    console.error("");
     process.exit(1);
   }
-  
-  console.error("⚠️  Secrets found but below 'fail_on' threshold. Push allowed.");
-  console.error(`   Current threshold: ${config.failOn}. Adjust in .keysentinel.yml if needed.`);
+
+  console.error(`  ⚠️  Secrets found but below "${failOn}" threshold. ${action === "commit" ? "Commit" : "Push"} allowed.`);
+  console.error(`     Current threshold: ${failOn}. Adjust in .keysentinel.yml if needed.`);
+  console.error("");
   process.exit(0);
 }
 

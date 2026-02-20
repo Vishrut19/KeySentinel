@@ -1,9 +1,9 @@
 /**
  * Configuration handling for KeySentinel
  */
-import { Severity, EntropyConfig } from './patterns';
+import { Severity, EntropyConfig } from "./patterns";
 export interface Config {
-    failOn: Severity | 'off';
+    failOn: Severity | "off";
     postNoFindings: boolean;
     ignore: string[];
     allowlist: RegExp[];

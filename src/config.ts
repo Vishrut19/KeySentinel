@@ -2,14 +2,14 @@
  * Configuration handling for KeySentinel
  */
 
-import * as core from '@actions/core';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as yaml from 'js-yaml';
-import { Severity, EntropyConfig } from './patterns';
+import * as core from "@actions/core";
+import * as fs from "fs";
+import * as path from "path";
+import * as yaml from "js-yaml";
+import { Severity, EntropyConfig } from "./patterns";
 
 export interface Config {
-  failOn: Severity | 'off';
+  failOn: Severity | "off";
   postNoFindings: boolean;
   ignore: string[];
   allowlist: RegExp[];
@@ -49,26 +49,26 @@ interface YamlConfig {
 }
 
 const DEFAULT_IGNORE = [
-  'node_modules/**',
-  'dist/**',
-  'build/**',
-  'vendor/**',
-  '*.min.js',
-  '*.min.css',
-  'package-lock.json',
-  'yarn.lock',
-  'pnpm-lock.yaml',
-  '*.lock',
-  '*.map',
-  '.git/**',
-  'coverage/**',
-  '__pycache__/**',
-  '*.pyc',
-  '.env.example',
-  '.env.sample',
-  '*.md',
-  'LICENSE*',
-  'CHANGELOG*',
+  "node_modules/**",
+  "dist/**",
+  "build/**",
+  "vendor/**",
+  "*.min.js",
+  "*.min.css",
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+  "*.lock",
+  "*.map",
+  ".git/**",
+  "coverage/**",
+  "__pycache__/**",
+  "*.pyc",
+  ".env.example",
+  ".env.sample",
+  "*.md",
+  "LICENSE*",
+  "CHANGELOG*",
 ];
 
 const DEFAULT_ENTROPY_CONFIG: EntropyConfig = {
@@ -78,29 +78,38 @@ const DEFAULT_ENTROPY_CONFIG: EntropyConfig = {
   ignoreBase64Like: true,
 };
 
-function parseSeverity(value: string, logger?: ConfigLogger): Severity | 'off' {
+function parseSeverity(value: string, logger?: ConfigLogger): Severity | "off" {
   const normalized = value.toLowerCase().trim();
-  if (['high', 'medium', 'low', 'off'].includes(normalized)) {
-    return normalized as Severity | 'off';
+  if (["high", "medium", "low", "off"].includes(normalized)) {
+    return normalized as Severity | "off";
   }
   logger?.warn?.(`Invalid fail_on value "${value}", defaulting to "high"`);
-  return 'high';
+  return "high";
 }
 
 function parseIgnoreGlobs(input: string): string[] {
-  if (!input || input.trim() === '') return [];
-  return input.split(',').map(s => s.trim()).filter(s => s.length > 0);
+  if (!input || input.trim() === "") return [];
+  return input
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 }
 
-function parseAllowlistPatterns(input: string, logger?: ConfigLogger): RegExp[] {
-  if (!input || input.trim() === '') return [];
+function parseAllowlistPatterns(
+  input: string,
+  logger?: ConfigLogger,
+): RegExp[] {
+  if (!input || input.trim() === "") return [];
 
   const patterns: RegExp[] = [];
-  const parts = input.split(',').map(s => s.trim()).filter(s => s.length > 0);
+  const parts = input
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 
   for (const part of parts) {
     try {
-      patterns.push(new RegExp(part, 'gi'));
+      patterns.push(new RegExp(part, "gi"));
     } catch (e) {
       logger?.warn?.(`Invalid allowlist regex "${part}": ${e}`);
     }
@@ -112,7 +121,10 @@ function parseAllowlistPatterns(input: string, logger?: ConfigLogger): RegExp[] 
 /**
  * Load YAML config from path. Uses logger for messages (Action passes core, CLI uses console).
  */
-export function loadYamlConfig(configPath: string, logger?: ConfigLogger): YamlConfig | null {
+export function loadYamlConfig(
+  configPath: string,
+  logger?: ConfigLogger,
+): YamlConfig | null {
   const log = logger ?? console;
   try {
     if (!fs.existsSync(configPath)) {
@@ -120,10 +132,10 @@ export function loadYamlConfig(configPath: string, logger?: ConfigLogger): YamlC
       return null;
     }
 
-    const content = fs.readFileSync(configPath, 'utf8');
+    const content = fs.readFileSync(configPath, "utf8");
     const parsed = yaml.load(content) as YamlConfig;
 
-    if (!parsed || typeof parsed !== 'object') {
+    if (!parsed || typeof parsed !== "object") {
       log.warn?.(`Invalid config file at ${configPath}`);
       return null;
     }
@@ -142,13 +154,13 @@ export function loadYamlConfig(configPath: string, logger?: ConfigLogger): YamlC
 export function buildConfig(
   yamlConfig: YamlConfig | null,
   overrides: ConfigOverrides,
-  logger?: ConfigLogger
+  logger?: ConfigLogger,
 ): Config {
   const log = logger ?? console;
-  const inputFailOn = overrides.failOn ?? 'high';
+  const inputFailOn = overrides.failOn ?? "high";
   const inputPostNoFindings = overrides.postNoFindings ?? false;
-  const inputIgnore = overrides.ignore ?? '';
-  const inputAllowlist = overrides.allowlist ?? '';
+  const inputIgnore = overrides.ignore ?? "";
+  const inputAllowlist = overrides.allowlist ?? "";
   const inputMaxFiles = overrides.maxFiles ?? 100;
 
   let config: Config = {
@@ -156,7 +168,10 @@ export function buildConfig(
     postNoFindings: inputPostNoFindings,
     ignore: [...DEFAULT_IGNORE, ...parseIgnoreGlobs(inputIgnore)],
     allowlist: parseAllowlistPatterns(inputAllowlist, log),
-    maxFiles: typeof inputMaxFiles === 'number' ? inputMaxFiles : parseInt(String(inputMaxFiles) || '100', 10),
+    maxFiles:
+      typeof inputMaxFiles === "number"
+        ? inputMaxFiles
+        : parseInt(String(inputMaxFiles) || "100", 10),
     patterns: {},
     entropy: { ...DEFAULT_ENTROPY_CONFIG },
   };
@@ -165,7 +180,10 @@ export function buildConfig(
     if (yamlConfig.fail_on !== undefined && overrides.failOn === undefined) {
       config.failOn = parseSeverity(yamlConfig.fail_on, log);
     }
-    if (yamlConfig.post_no_findings !== undefined && overrides.postNoFindings === undefined) {
+    if (
+      yamlConfig.post_no_findings !== undefined &&
+      overrides.postNoFindings === undefined
+    ) {
       config.postNoFindings = yamlConfig.post_no_findings;
     }
     if (yamlConfig.ignore && Array.isArray(yamlConfig.ignore)) {
@@ -175,14 +193,17 @@ export function buildConfig(
       const yamlPatterns: RegExp[] = [];
       for (const pattern of yamlConfig.allowlist) {
         try {
-          yamlPatterns.push(new RegExp(pattern, 'gi'));
+          yamlPatterns.push(new RegExp(pattern, "gi"));
         } catch (e) {
           log.warn?.(`Invalid allowlist regex in config "${pattern}": ${e}`);
         }
       }
       config.allowlist = [...config.allowlist, ...yamlPatterns];
     }
-    if (yamlConfig.max_files !== undefined && overrides.maxFiles === undefined) {
+    if (
+      yamlConfig.max_files !== undefined &&
+      overrides.maxFiles === undefined
+    ) {
       config.maxFiles = yamlConfig.max_files;
     }
     if (yamlConfig.patterns) {
@@ -191,9 +212,13 @@ export function buildConfig(
     if (yamlConfig.entropy) {
       config.entropy = {
         enabled: yamlConfig.entropy.enabled ?? DEFAULT_ENTROPY_CONFIG.enabled,
-        minLength: yamlConfig.entropy.min_length ?? DEFAULT_ENTROPY_CONFIG.minLength,
-        threshold: yamlConfig.entropy.threshold ?? DEFAULT_ENTROPY_CONFIG.threshold,
-        ignoreBase64Like: yamlConfig.entropy.ignore_base64_like ?? DEFAULT_ENTROPY_CONFIG.ignoreBase64Like,
+        minLength:
+          yamlConfig.entropy.min_length ?? DEFAULT_ENTROPY_CONFIG.minLength,
+        threshold:
+          yamlConfig.entropy.threshold ?? DEFAULT_ENTROPY_CONFIG.threshold,
+        ignoreBase64Like:
+          yamlConfig.entropy.ignore_base64_like ??
+          DEFAULT_ENTROPY_CONFIG.ignoreBase64Like,
       };
     }
   }
@@ -210,7 +235,7 @@ export function buildConfig(
 
 /** Load config for GitHub Action (uses @actions/core inputs). */
 export function loadConfig(): Config {
-  const configPath = core.getInput('config_path') || '.keysentinel.yml';
+  const configPath = core.getInput("config_path") || ".keysentinel.yml";
   const yamlConfig = loadYamlConfig(configPath, {
     warn: (m) => core.warning(m),
     debug: (m) => core.debug(m),
@@ -219,23 +244,29 @@ export function loadConfig(): Config {
   return buildConfig(
     yamlConfig,
     {
-      failOn: core.getInput('fail_on') || 'high',
-      postNoFindings: core.getInput('post_no_findings') === 'true',
-      ignore: core.getInput('ignore'),
-      allowlist: core.getInput('allowlist'),
-      maxFiles: parseInt(core.getInput('max_files') || '100', 10),
+      failOn: core.getInput("fail_on") || "high",
+      postNoFindings: core.getInput("post_no_findings") === "true",
+      ignore: core.getInput("ignore"),
+      allowlist: core.getInput("allowlist"),
+      maxFiles: parseInt(core.getInput("max_files") || "100", 10),
     },
-    { warn: (m) => core.warning(m), debug: (m) => core.debug(m), info: (m) => core.info(m) }
+    {
+      warn: (m) => core.warning(m),
+      debug: (m) => core.debug(m),
+      info: (m) => core.info(m),
+    },
   );
 }
 
 /**
  * Load config for CLI (no @actions/core). Reads .keysentinel.yml from cwd (or configPath).
  */
-export function loadConfigForCli(options?: { cwd?: string; configPath?: string }): Config {
+export function loadConfigForCli(options?: {
+  cwd?: string;
+  configPath?: string;
+}): Config {
   const cwd = options?.cwd ?? process.cwd();
-  const configPath =
-    options?.configPath ?? path.join(cwd, '.keysentinel.yml');
+  const configPath = options?.configPath ?? path.join(cwd, ".keysentinel.yml");
   const yamlConfig = loadYamlConfig(configPath, console);
   return buildConfig(yamlConfig, {}, console);
 }
@@ -243,7 +274,10 @@ export function loadConfigForCli(options?: { cwd?: string; configPath?: string }
 /**
  * Check if a file path matches any ignore glob
  */
-export function shouldIgnoreFile(filePath: string, ignorePatterns: string[]): boolean {
+export function shouldIgnoreFile(
+  filePath: string,
+  ignorePatterns: string[],
+): boolean {
   for (const pattern of ignorePatterns) {
     if (matchGlob(filePath, pattern)) {
       return true;
@@ -257,29 +291,29 @@ export function shouldIgnoreFile(filePath: string, ignorePatterns: string[]): bo
  */
 function matchGlob(path: string, pattern: string): boolean {
   // Normalize path separators
-  const normalizedPath = path.replace(/\\/g, '/');
-  const normalizedPattern = pattern.replace(/\\/g, '/');
+  const normalizedPath = path.replace(/\\/g, "/");
+  const normalizedPattern = pattern.replace(/\\/g, "/");
 
   // Convert glob to regex
   let regexStr = normalizedPattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape special regex chars
-    .replace(/\*\*/g, '{{GLOBSTAR}}')     // Placeholder for **
-    .replace(/\*/g, '[^/]*')              // * matches anything except /
-    .replace(/{{GLOBSTAR}}/g, '.*')       // ** matches anything including /
-    .replace(/\?/g, '.');                  // ? matches single char
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&") // Escape special regex chars
+    .replace(/\*\*/g, "{{GLOBSTAR}}") // Placeholder for **
+    .replace(/\*/g, "[^/]*") // * matches anything except /
+    .replace(/{{GLOBSTAR}}/g, ".*") // ** matches anything including /
+    .replace(/\?/g, "."); // ? matches single char
 
   // Check if pattern should match from start
-  if (!normalizedPattern.startsWith('*')) {
-    regexStr = '^' + regexStr;
+  if (!normalizedPattern.startsWith("*")) {
+    regexStr = "^" + regexStr;
   }
 
   // Check if pattern should match to end
-  if (!normalizedPattern.endsWith('*')) {
-    regexStr = regexStr + '$';
+  if (!normalizedPattern.endsWith("*")) {
+    regexStr = regexStr + "$";
   }
 
   try {
-    const regex = new RegExp(regexStr, 'i');
+    const regex = new RegExp(regexStr, "i");
     return regex.test(normalizedPath);
   } catch {
     return false;

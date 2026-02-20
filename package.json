@@ -3,12 +3,15 @@
     "version": "0.1.0",
     "description": "GitHub Action that scans PR diffs for secrets and sensitive data",
     "main": "dist/index.js",
+    "bin": { "keysentinel": "lib/cli.js" },
+    "files": [ "lib", "dist" ],
     "scripts": {
         "build": "tsc",
         "package": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
         "lint": "eslint src/**/*.ts",
         "test": "jest",
-        "all": "npm run build && npm run package"
+        "all": "npm run build && npm run package",
+        "prepublishOnly": "npm run build"
     },
     "repository": {
         "type": "git",

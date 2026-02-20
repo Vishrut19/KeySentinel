@@ -4,6 +4,7 @@
 
 import * as core from '@actions/core';
 import * as fs from 'fs';
+import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { Severity, EntropyConfig } from './patterns';
 
@@ -15,6 +16,21 @@ export interface Config {
   maxFiles: number;
   patterns: Record<string, boolean>;
   entropy: EntropyConfig;
+}
+
+/** Overrides for config (e.g. from Action inputs or CLI flags). */
+export interface ConfigOverrides {
+  failOn?: string;
+  postNoFindings?: boolean;
+  ignore?: string;
+  allowlist?: string;
+  maxFiles?: number;
+}
+
+export interface ConfigLogger {
+  warn?(message: string): void;
+  debug?(message: string): void;
+  info?(message: string): void;
 }
 
 interface YamlConfig {
@@ -62,12 +78,12 @@ const DEFAULT_ENTROPY_CONFIG: EntropyConfig = {
   ignoreBase64Like: true,
 };
 
-function parseSeverity(value: string): Severity | 'off' {
+function parseSeverity(value: string, logger?: ConfigLogger): Severity | 'off' {
   const normalized = value.toLowerCase().trim();
   if (['high', 'medium', 'low', 'off'].includes(normalized)) {
     return normalized as Severity | 'off';
   }
-  core.warning(`Invalid fail_on value "${value}", defaulting to "high"`);
+  logger?.warn?.(`Invalid fail_on value "${value}", defaulting to "high"`);
   return 'high';
 }
 
@@ -76,7 +92,7 @@ function parseIgnoreGlobs(input: string): string[] {
   return input.split(',').map(s => s.trim()).filter(s => s.length > 0);
 }
 
-function parseAllowlistPatterns(input: string): RegExp[] {
+function parseAllowlistPatterns(input: string, logger?: ConfigLogger): RegExp[] {
   if (!input || input.trim() === '') return [];
 
   const patterns: RegExp[] = [];
@@ -86,17 +102,21 @@ function parseAllowlistPatterns(input: string): RegExp[] {
     try {
       patterns.push(new RegExp(part, 'gi'));
     } catch (e) {
-      core.warning(`Invalid allowlist regex "${part}": ${e}`);
+      logger?.warn?.(`Invalid allowlist regex "${part}": ${e}`);
     }
   }
 
   return patterns;
 }
 
-function loadYamlConfig(configPath: string): YamlConfig | null {
+/**
+ * Load YAML config from path. Uses logger for messages (Action passes core, CLI uses console).
+ */
+export function loadYamlConfig(configPath: string, logger?: ConfigLogger): YamlConfig | null {
+  const log = logger ?? console;
   try {
     if (!fs.existsSync(configPath)) {
-      core.debug(`Config file not found at ${configPath}`);
+      log.debug?.(`Config file not found at ${configPath}`);
       return null;
     }
 
@@ -104,75 +124,70 @@ function loadYamlConfig(configPath: string): YamlConfig | null {
     const parsed = yaml.load(content) as YamlConfig;
 
     if (!parsed || typeof parsed !== 'object') {
-      core.warning(`Invalid config file at ${configPath}`);
+      log.warn?.(`Invalid config file at ${configPath}`);
       return null;
     }
 
-    core.info(`Loaded config from ${configPath}`);
+    log.info?.(`Loaded config from ${configPath}`);
     return parsed;
   } catch (e) {
-    core.warning(`Failed to load config file ${configPath}: ${e}`);
+    log.warn?.(`Failed to load config file ${configPath}: ${e}`);
     return null;
   }
 }
 
-export function loadConfig(): Config {
-  // Load action inputs
-  const inputFailOn = core.getInput('fail_on') || 'high';
-  const inputPostNoFindings = core.getInput('post_no_findings') === 'true';
-  const inputIgnore = core.getInput('ignore');
-  const inputAllowlist = core.getInput('allowlist');
-  const inputMaxFiles = parseInt(core.getInput('max_files') || '100', 10);
-  const configPath = core.getInput('config_path') || '.keysentinel.yml';
+/**
+ * Build Config from YAML and overrides. Pure merge: defaults, then YAML, then overrides.
+ */
+export function buildConfig(
+  yamlConfig: YamlConfig | null,
+  overrides: ConfigOverrides,
+  logger?: ConfigLogger
+): Config {
+  const log = logger ?? console;
+  const inputFailOn = overrides.failOn ?? 'high';
+  const inputPostNoFindings = overrides.postNoFindings ?? false;
+  const inputIgnore = overrides.ignore ?? '';
+  const inputAllowlist = overrides.allowlist ?? '';
+  const inputMaxFiles = overrides.maxFiles ?? 100;
 
-  // Start with defaults
   let config: Config = {
-    failOn: parseSeverity(inputFailOn),
+    failOn: parseSeverity(inputFailOn, log),
     postNoFindings: inputPostNoFindings,
     ignore: [...DEFAULT_IGNORE, ...parseIgnoreGlobs(inputIgnore)],
-    allowlist: parseAllowlistPatterns(inputAllowlist),
-    maxFiles: inputMaxFiles,
+    allowlist: parseAllowlistPatterns(inputAllowlist, log),
+    maxFiles: typeof inputMaxFiles === 'number' ? inputMaxFiles : parseInt(String(inputMaxFiles) || '100', 10),
     patterns: {},
     entropy: { ...DEFAULT_ENTROPY_CONFIG },
   };
 
-  // Load YAML config file if exists (overrides defaults, but action inputs take precedence)
-  const yamlConfig = loadYamlConfig(configPath);
-
   if (yamlConfig) {
-    // YAML config overrides defaults
-    if (yamlConfig.fail_on !== undefined && !core.getInput('fail_on')) {
-      config.failOn = parseSeverity(yamlConfig.fail_on);
+    if (yamlConfig.fail_on !== undefined && overrides.failOn === undefined) {
+      config.failOn = parseSeverity(yamlConfig.fail_on, log);
     }
-
-    if (yamlConfig.post_no_findings !== undefined && !core.getInput('post_no_findings')) {
+    if (yamlConfig.post_no_findings !== undefined && overrides.postNoFindings === undefined) {
       config.postNoFindings = yamlConfig.post_no_findings;
     }
-
     if (yamlConfig.ignore && Array.isArray(yamlConfig.ignore)) {
       config.ignore = [...DEFAULT_IGNORE, ...yamlConfig.ignore];
     }
-
     if (yamlConfig.allowlist && Array.isArray(yamlConfig.allowlist)) {
       const yamlPatterns: RegExp[] = [];
       for (const pattern of yamlConfig.allowlist) {
         try {
           yamlPatterns.push(new RegExp(pattern, 'gi'));
         } catch (e) {
-          core.warning(`Invalid allowlist regex in config "${pattern}": ${e}`);
+          log.warn?.(`Invalid allowlist regex in config "${pattern}": ${e}`);
         }
       }
       config.allowlist = [...config.allowlist, ...yamlPatterns];
     }
-
-    if (yamlConfig.max_files !== undefined && !core.getInput('max_files')) {
+    if (yamlConfig.max_files !== undefined && overrides.maxFiles === undefined) {
       config.maxFiles = yamlConfig.max_files;
     }
-
     if (yamlConfig.patterns) {
       config.patterns = yamlConfig.patterns;
     }
-
     if (yamlConfig.entropy) {
       config.entropy = {
         enabled: yamlConfig.entropy.enabled ?? DEFAULT_ENTROPY_CONFIG.enabled,
@@ -183,16 +198,46 @@ export function loadConfig(): Config {
     }
   }
 
-  // Overlay action inputs over YAML (action inputs take final precedence if explicitly set)
   if (inputIgnore) {
     config.ignore = [...DEFAULT_IGNORE, ...parseIgnoreGlobs(inputIgnore)];
   }
-
   if (inputAllowlist) {
-    config.allowlist = parseAllowlistPatterns(inputAllowlist);
+    config.allowlist = parseAllowlistPatterns(inputAllowlist, log);
   }
 
   return config;
+}
+
+/** Load config for GitHub Action (uses @actions/core inputs). */
+export function loadConfig(): Config {
+  const configPath = core.getInput('config_path') || '.keysentinel.yml';
+  const yamlConfig = loadYamlConfig(configPath, {
+    warn: (m) => core.warning(m),
+    debug: (m) => core.debug(m),
+    info: (m) => core.info(m),
+  });
+  return buildConfig(
+    yamlConfig,
+    {
+      failOn: core.getInput('fail_on') || 'high',
+      postNoFindings: core.getInput('post_no_findings') === 'true',
+      ignore: core.getInput('ignore'),
+      allowlist: core.getInput('allowlist'),
+      maxFiles: parseInt(core.getInput('max_files') || '100', 10),
+    },
+    { warn: (m) => core.warning(m), debug: (m) => core.debug(m), info: (m) => core.info(m) }
+  );
+}
+
+/**
+ * Load config for CLI (no @actions/core). Reads .keysentinel.yml from cwd (or configPath).
+ */
+export function loadConfigForCli(options?: { cwd?: string; configPath?: string }): Config {
+  const cwd = options?.cwd ?? process.cwd();
+  const configPath =
+    options?.configPath ?? path.join(cwd, '.keysentinel.yml');
+  const yamlConfig = loadYamlConfig(configPath, console);
+  return buildConfig(yamlConfig, {}, console);
 }
 
 /**

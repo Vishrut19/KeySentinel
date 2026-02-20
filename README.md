@@ -53,6 +53,40 @@ Repo -> Settings -> Actions -> General -> Workflow Permissions -> Select ✅ Rea
 
 **Step:3** Open a PR and it will automatically check for leaked API keys, tokens and passwords.
 
+## Block secrets locally (pre-commit)
+
+Block secrets before they are pushed by installing the KeySentinel pre-commit hook. The same rules (`.keysentinel.yml`, allowlist, ignore) apply as in the GitHub Action.
+
+**Install the CLI**
+
+```bash
+# Global install (recommended for pre-commit)
+npm install -g keysentinel
+
+# Or as a project dev dependency
+npm install -D keysentinel
+```
+
+**Install the pre-commit hook**
+
+From your repo root:
+
+```bash
+keysentinel install
+```
+
+This writes `.git/hooks/pre-commit` so that every commit runs `keysentinel scan` on staged changes. If any secret is found at or above your `fail_on` severity (see Configuration), the commit is blocked and findings are printed to the terminal. No secrets are sent off-machine; everything runs locally.
+
+**Manual scan**
+
+To scan staged files without committing:
+
+```bash
+keysentinel scan
+```
+
+Exit code is `1` if secrets are found at or above `fail_on`, otherwise `0`.
+
 ## Screenshot
 
 <img width="1469" height="776" alt="Screenshot 2026-02-20 at 10 27 47 AM" src="https://github.com/user-attachments/assets/e9edc920-222c-45ab-8c97-f8e1ede956aa" />
@@ -73,7 +107,7 @@ Repo -> Settings -> Actions -> General -> Workflow Permissions -> Select ✅ Rea
 
 ### Configuration File
 
-Create `.keysentinel.yml` in your repository root for advanced configuration:
+Create `.keysentinel.yml` in your repository root for advanced configuration. This file is used by both the GitHub Action and the local CLI (`keysentinel scan` / pre-commit hook), so allowlists and ignore rules stay in sync.
 
 ```yaml
 # Fail workflow at this severity level

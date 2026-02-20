@@ -113,12 +113,16 @@ From your repository root:
 keysentinel install
 ```
 
-This installs both `.git/hooks/pre-commit` and `.git/hooks/pre-push` hooks that automatically scan staged changes. The hooks:
+This installs both `.git/hooks/pre-commit` and `.git/hooks/pre-push` hooks in **this** repository. You must run `keysentinel install` in each repo where you want commits and pushes blocked (i.e. the repo you run `git push` from).
 
-- ✅ Use `keysentinel` if available in PATH
-- ✅ Fall back to `npx keysentinel scan` for local installs
-- ✅ Block commits/pushes when secrets are detected
+The hooks:
+
+- ✅ Scan staged files on commit (pre-commit) and pushed commits on push (pre-push)
+- ✅ Prefer local `lib/cli.js` or `node_modules/.bin/keysentinel`, then global `keysentinel`, then `npx keysentinel`
+- ✅ Block commit/push when secrets are found at or above your `fail_on` severity
 - ✅ Show clear error messages with findings
+
+To block **medium** severity (e.g. generic API keys like `sk_...`), add a `.keysentinel.yml` in the repo root with `fail_on: medium`. The default is `high` (only high severity blocks).
 
 ### Manual Scan
 

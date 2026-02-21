@@ -42,11 +42,15 @@
 npm install -g keysentinel
 ```
 
-**Install git hooks:**
+**Run the setup wizard:**
 
 ```bash
-keysentinel install
+keysentinel init
 ```
+
+This interactive wizard will:
+- Create `.keysentinel.yml` with your preferred security settings
+- Install pre-commit and pre-push hooks automatically
 
 Done! Now every commit and push will be scanned for secrets automatically.
 
@@ -85,12 +89,6 @@ Go to **Repository Settings → Actions → General → Workflow Permissions** �
 
 KeySentinel will automatically scan for secrets and post findings as PR comments! 🎉
 
-## 📸 What It Looks Like
-
-When KeySentinel finds secrets, it posts a clear, actionable comment on your PR:
-
-<img width="1469" height="776" alt="KeySentinel PR Comment Example" src="https://github.com/user-attachments/assets/e9edc920-222c-45ab-8c97-f8e1ede956aa" />
-
 ## 💻 Block Secrets Locally
 
 **Stop secrets before they're committed** with KeySentinel's pre-commit and pre-push hooks. Perfect for catching leaks during development.
@@ -110,10 +108,15 @@ npm install -D keysentinel
 From your repository root:
 
 ```bash
-keysentinel install
+keysentinel init
 ```
 
-This installs both `.git/hooks/pre-commit` and `.git/hooks/pre-push` hooks in **this** repository. You must run `keysentinel install` in each repo where you want commits and pushes blocked (i.e. the repo you run `git push` from).
+This interactive wizard creates `.keysentinel.yml` and installs both `.git/hooks/pre-commit` and `.git/hooks/pre-push` hooks in **this** repository.
+
+**Prefer manual setup?** You can still use:
+```bash
+keysentinel install  # Install hooks only (uses default config)
+```
 
 The hooks:
 
@@ -122,7 +125,7 @@ The hooks:
 - ✅ Block commit/push when secrets are found at or above your `fail_on` severity
 - ✅ Show clear error messages with findings
 
-To block **medium** severity (e.g. generic API keys like `sk_...`), add a `.keysentinel.yml` in the repo root with `fail_on: medium`. The default is `high` (only high severity blocks).
+To block **only high** severity secrets, change `fail_on: high` in `.keysentinel.yml`. The default is `low` (catches all secrets including generic API keys).
 
 ### Manual Scan
 
@@ -139,6 +142,12 @@ keysentinel scan
 
 > 💡 **Tip:** The same `.keysentinel.yml` configuration file works for both the CLI and GitHub Action, keeping your rules consistent across local and CI environments.
 
+## 📸 What It Looks Like
+
+When KeySentinel finds secrets, it posts a clear, actionable comment on your PR:
+
+<img width="1469" height="776" alt="KeySentinel PR Comment Example" src="https://github.com/user-attachments/assets/e9edc920-222c-45ab-8c97-f8e1ede956aa" />
+
 ## 🔧 Configuration
 
 KeySentinel is highly configurable. Use action inputs for quick setup, or create a `.keysentinel.yml` file for advanced configuration.
@@ -148,8 +157,8 @@ KeySentinel is highly configurable. Use action inputs for quick setup, or create
 | Input              | Description                                                     | Default               |
 | ------------------ | --------------------------------------------------------------- | --------------------- |
 | `github_token`     | GitHub token for API access                                     | `${{ github.token }}` |
-| `fail_on`          | Fail workflow at this severity (`high`, `medium`, `low`, `off`) | `high`                |
-| `post_no_findings` | Post comment when no secrets found                              | `false`               |
+| `fail_on`          | Fail workflow at this severity (`high`, `medium`, `low`, `off`) | `low`                 |
+| `post_no_findings` | Post comment when no secrets found                              | `true`                |
 | `ignore`           | Comma-separated file globs to ignore                            | (see defaults)        |
 | `allowlist`        | Comma-separated regex patterns to allow                         | `""`                  |
 | `max_files`        | Maximum files to scan per PR                                    | `100`                 |
@@ -161,10 +170,10 @@ Create `.keysentinel.yml` in your repository root for advanced configuration. Th
 
 ```yaml
 # Severity threshold for failing workflows
-fail_on: high # Options: high | medium | low | off
+fail_on: low # Options: high | medium | low | off
 
 # Post comment even when no secrets found
-post_no_findings: false
+post_no_findings: true
 
 # Maximum files to scan per PR
 max_files: 100

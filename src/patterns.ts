@@ -180,21 +180,21 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   // Stripe
   {
     name: 'Stripe Live Key',
-    pattern: /\bsk_live_[0-9a-zA-Z]{24,}\b/g,
+    pattern: /\bsk_live_[0-9a-zA-Z]{10,}\b/g,
     severity: 'high',
     group: 'stripe',
     remediation: 'Roll the API key immediately in the Stripe Dashboard (https://dashboard.stripe.com/apikeys) → Roll key. This is a LIVE key — unauthorized charges may have occurred.',
   },
   {
     name: 'Stripe Test Key',
-    pattern: /\bsk_test_[0-9a-zA-Z]{24,}\b/g,
+    pattern: /\bsk_test_[0-9a-zA-Z]{10,}\b/g,
     severity: 'low',
     group: 'stripe',
     remediation: 'Remove the test key from code and use environment variables. While test keys cannot process real charges, they should still not be committed.',
   },
   {
     name: 'Stripe Restricted Key',
-    pattern: /\brk_live_[0-9a-zA-Z]{24,}\b/g,
+    pattern: /\brk_live_[0-9a-zA-Z]{10,}\b/g,
     severity: 'high',
     group: 'stripe',
     remediation: 'Delete and regenerate the restricted key in the Stripe Dashboard → API keys → Restricted keys. Review access logs for unauthorized usage.',

@@ -35,6 +35,7 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   },
   {
     name: 'AWS Secret Access Key',
+    // AWS secret keys are 40 chars base64, but must have some variety (not all same char)
     pattern: /\b([A-Za-z0-9/+=]{40})\b/g,
     severity: 'high',
     group: 'aws',
@@ -328,6 +329,9 @@ export function isLikelyNonSecret(str: string): boolean {
     /^[0-9a-f]{64}$/i, // Hex hashes (SHA256)
     /^[0-9a-f]{40}$/i, // Git commit hashes
   ];
+
+  // Check for strings with all same character (e.g., "000000...", "aaaaaa...")
+  if (/^(.)(\1)+$/.test(str)) return true;
 
   return nonSecretPatterns.some(p => p.test(str));
 }

@@ -192,12 +192,42 @@ function cmdScanPush(): void {
         const remoteSha = parts[3];
         if (!localSha || localSha.length !== 40) continue;
 
-        if (!remoteSha || remoteSha === "0".repeat(40)) {
-          const commits = runGit(gitRoot, ["rev-list", localSha]);
-          if (commits) {
-            commitsToScan.push(...commits.split("\n").filter(Boolean));
+        // New branch push (remoteSha is all zeros)
+        if (!remoteSha || remoteSha === "0".repeat(40) || remoteSha === "0000000000000000000000000000000000000000") {
+          // For new branches, scan all commits not on main/master
+          const remoteName = "origin";
+          let compareBase: string | null = null;
+          try {
+            compareBase = runGit(gitRoot, ["rev-parse", `--verify`, `${remoteName}/main`]);
+          } catch {
+            try {
+              compareBase = runGit(gitRoot, ["rev-parse", `--verify`, `${remoteName}/master`]);
+            } catch {
+              // No remote main/master, scan all commits in this branch
+              compareBase = null;
+            }
+          }
+          
+          if (compareBase) {
+            // Scan commits from compareBase to localSha
+            try {
+              const commits = runGit(gitRoot, ["rev-list", `${compareBase}..${localSha}`]);
+              if (commits) {
+                commitsToScan.push(...commits.split("\n").filter(Boolean));
+              }
+            } catch {
+              // If comparison fails, scan the specific commit
+              commitsToScan.push(localSha);
+            }
+          } else {
+            // No remote base, scan all commits reachable from localSha
+            const commits = runGit(gitRoot, ["rev-list", localSha]);
+            if (commits) {
+              commitsToScan.push(...commits.split("\n").filter(Boolean));
+            }
           }
         } else {
+          // Existing branch - scan commits between remote and local
           const commits = runGit(gitRoot, ["rev-list", `${remoteSha}..${localSha}`]);
           if (commits) {
             commitsToScan.push(...commits.split("\n").filter(Boolean));
@@ -217,13 +247,12 @@ function cmdScanPush(): void {
         compareBase = remoteBranch;
       } catch {
         try {
-          runGit(gitRoot, ["rev-parse", "--verify", `${remoteName}/main`]);
-          compareBase = `${remoteName}/main`;
+          compareBase = runGit(gitRoot, ["rev-parse", "--verify", `${remoteName}/main`]);
         } catch {
           try {
-            runGit(gitRoot, ["rev-parse", "--verify", `${remoteName}/master`]);
-            compareBase = `${remoteName}/master`;
+            compareBase = runGit(gitRoot, ["rev-parse", "--verify", `${remoteName}/master`]);
           } catch {
+            // No remote to compare against, scan last 10 commits
             const commits = runGit(gitRoot, ["rev-list", "-n", "10", "HEAD"]);
             commitsToScan = commits ? commits.split("\n").filter(Boolean) : [];
           }

@@ -7,6 +7,7 @@ import {
   Severity,
   SecretPattern,
   detectHighEntropyStrings,
+  isLikelyNonSecret,
 } from './patterns';
 import { maskLine } from './mask';
 import { isAllowlisted, Config } from './config';
@@ -74,6 +75,11 @@ export function scanWithPatterns(
 
       // Skip if allowlisted
       if (isAllowlisted(value, allowlist)) {
+        continue;
+      }
+
+      // Skip if it looks like a non-secret (e.g., all zeros, UUIDs, etc.)
+      if (isLikelyNonSecret(value)) {
         continue;
       }
 

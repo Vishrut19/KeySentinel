@@ -1,6 +1,6 @@
 {
     "name": "keysentinel",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "description": "GitHub Action that scans PR diffs for secrets and sensitive data",
     "main": "dist/index.js",
     "bin": {
